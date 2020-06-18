@@ -55,11 +55,11 @@ def get_trainers(env, num_adversaries, obs_shape_n, arglist):
     trainer = MADDPGAgentTrainer
     for i in range(num_adversaries):
         trainers.append(trainer(
-            "agent_%d" % i, 1e-3, obs_shape_n, env.action_space, i, arglist,
+            "agent_%d" % i, 1e-2, obs_shape_n, env.action_space, i, arglist,
             local_q_func=(arglist.adv_policy=='ddpg')))
     for i in range(num_adversaries, env.n):
         trainers.append(trainer(
-            "agent_%d" % i, 1e-3, obs_shape_n, env.action_space, i, arglist,
+            "agent_%d" % i, 1e-2, obs_shape_n, env.action_space, i, arglist,
             local_q_func=(arglist.good_policy=='ddpg')))
     return trainers
 

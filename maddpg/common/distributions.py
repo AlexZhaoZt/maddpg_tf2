@@ -27,8 +27,10 @@ class PdType(object):
     """
     def pdclass(self):
         raise NotImplementedError
+    
     def pdfromflat(self, flat):
         return self.pdclass()(flat)
+    
     def param_shape(self):
         raise NotImplementedError
     def sample_shape(self):
@@ -39,6 +41,7 @@ class PdType(object):
 class CategoricalPdType(PdType):
     def __init__(self, ncat):
         self.ncat = ncat
+    
     def pdclass(self):
         return CategoricalPd
     def param_shape(self):
@@ -176,7 +179,7 @@ class SoftCategoricalPd(Pd):
     def flatparam(self):
         return self.logits
     def mode(self):
-        return softmax(self.logits, axis=-1)
+        return tf.nn.softmax(self.logits, axis=-1)
     """
     def logp(self, x):
         return -tf.nn.softmax_cross_entropy_with_logits(logits=self.logits, labels=x)
@@ -198,10 +201,8 @@ class SoftCategoricalPd(Pd):
         return U.sum(p0 * (tf.math.log(z0) - a0), axis=1)
     """
     def sample(self):
-        u = np.random.uniform(size=self.logits.shape)
-        #print(self.logits)
-        #print(u)
-        return softmax(self.logits - np.log(-np.log(u)), axis=-1)  
+        u = tf.random.uniform(tf.shape(self.logits))
+        return tf.nn.softmax(self.logits - tf.math.log(-tf.math.log(u)), axis=-1)  
     @classmethod
     def fromflat(cls, flat):
         return cls(flat)        
