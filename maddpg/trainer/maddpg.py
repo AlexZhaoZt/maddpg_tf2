@@ -8,6 +8,7 @@ from maddpg import AgentTrainer
 from maddpg.trainer.replay_buffer import ReplayBuffer
 
 from tensorflow.keras import Input
+from tensorflow.keras.layers import InputLayer 
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.models import Model
 
@@ -43,6 +44,27 @@ def update_target(model, target_model):
     new_weight = np.array(target_model.get_weights())
     target_model.set_weights(polyak * old_weight + (1-polyak) * new_weight)
 
+
+
+class Actor(tf.keras.Model):
+    def __init__(self, obs_size, act_size, name="Actor"):
+        super().__init__(name=name)
+        
+        self.original_dim = 4
+
+        self.l1 = Dense(64, name="L1")
+        self.l2 = Dense(64, name="L2")
+        self.l3 = Dense(act_size, name="L3")
+    
+    def call(self, inputs):
+        x = tf.nn.relu(self.l1(inputs))
+        x = tf.nn.relu(self.l2(x))
+        logits = self.l3(x)
+        u = tf.random.uniform(tf.shape(logits))
+        x = tf.nn.softmax(logits - tf.math.log(-tf.math.log(u)), axis=-1)  
+        return x
+
+
 class MADDPGAgentTrainer(AgentTrainer):
     def __init__(self, name, learning_rate, obs_shape_n, act_space_n, agent_index, args, local_q_func=False):
         self.name = name
@@ -58,8 +80,10 @@ class MADDPGAgentTrainer(AgentTrainer):
         for i_act in act_space_n:
             self.joint_act_size += i_act.n
         self.args = args
-        self.actor, self.critic = self.build_model()
-        self.actor_target, self.critic_target = self.build_model()
+        print(self.obs_size, self.act_size)
+        self.actor = Actor(self.obs_size, self.act_size)
+        #self.actor, self.critic = self.build_model()
+        #self.actor_target, self.critic_target = self.build_model()
         self.actor_optimizer = self.build_actor_optimizer()
 
         # Create experience buffer
@@ -67,7 +91,7 @@ class MADDPGAgentTrainer(AgentTrainer):
         self.max_replay_buffer_len = args.batch_size * args.max_episode_len
         self.replay_sample_index = None
         
-        gpu=1
+        gpu=0
 
         self.device = "/gpu:{}".format(gpu) if gpu >= 0 else "/cpu:0"
     
@@ -79,7 +103,6 @@ class MADDPGAgentTrainer(AgentTrainer):
         actor_out = Dense(self.act_size)(x)
         
         actor = Model(inp, actor_out)
-        
         # Note: "actor" is not compiled because we want customize the training process
 
         """ critic (value) neural network """
@@ -98,22 +121,32 @@ class MADDPGAgentTrainer(AgentTrainer):
         return Adam(learning_rate=self.args.lr)
     
     def action(self, obs):
-        a = self._get_action_body(tf.constant(obs[None]))
+        #a = self.sample_action(obs[None])
+        #print(obs[None].shape)
+        #a = self._get_action_body(tf.constant(obs[None], dtype='float32'))
+        a = self.actor(obs[None])
         return a[0]
-    
     
     def sample_action(self, obs):
         logits = self.actor.predict(obs, batch_size=len(obs))
-        u = np.random.uniform(logits)
-        a = scipy.special.softmax(logits - np.log(-np.log(u)), axis=-1)  
+        u = np.random.uniform(size=logits.shape)
         return a
-
+    """
     @tf.function
     def _get_action_body(self, obs_tensor):
         with tf.device(self.device):
             logits = self.actor(obs_tensor)
             act_pd = self.act_pdtype_n[self.agent_index].pdfromflat(logits)
             a = act_pd.sample()
+            return a
+    """
+    @tf.function(
+            input_signature=[tf.TensorSpec(shape=(None, 4), dtype=tf.float32)])
+    def _get_action_body(self, obs_tensor):
+        with tf.device(self.device):
+            logits = self.actor(obs_tensor)
+            u = tf.random.uniform(tf.shape(logits))
+            a = tf.nn.softmax(logits - tf.math.log(-tf.math.log(u)), axis=-1)  
             return a
 
     def experience(self, obs, act, rew, new_obs, done, terminal):

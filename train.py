@@ -146,8 +146,8 @@ def train(arglist):
 
         # save model, display training output
         if terminal and (len(episode_rewards) % arglist.save_rate == 0):
-            for agent in trainers:
-                agent.save_models(arglist.save_dir, 'latest')
+            #for agent in trainers:
+            #    agent.save_models(arglist.save_dir, 'latest')
             # print statement depends on whether or not there are adversaries
             if num_adversaries == 0:
                 print("steps: {}, episodes: {}, mean episode reward: {}, time: {}".format( 
