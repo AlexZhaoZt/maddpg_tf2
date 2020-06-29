@@ -146,8 +146,8 @@ def train(arglist):
 
         # save model, display training output
         if terminal and (len(episode_rewards) % arglist.save_rate == 0):
-            #for agent in trainers:
-            #    agent.save_models(arglist.save_dir, 'latest')
+            for agent in trainers:
+                agent.save_models(arglist.save_dir, 'latest')
             # print statement depends on whether or not there are adversaries
             if num_adversaries == 0:
                 print("steps: {}, episodes: {}, mean episode reward: {}, time: {}".format( 
@@ -174,5 +174,8 @@ def train(arglist):
             break
 
 if __name__ == '__main__':
+    import tensorflow as tf
+    tf.config.threading.set_inter_op_parallelism_threads(1)
+    tf.config.threading.set_intra_op_parallelism_threads(1)
     arglist = parse_args()
     train(arglist)
